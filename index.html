@@ -1,618 +1,68 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🧟 공부 좀비 퇴치</title>
+from pathlib import Path
+import base64, re
 
-<style>
-*{
-    box-sizing:border-box;
+src = Path('/mnt/data/붙여넣은 텍스트 (1)(3).txt')
+img = Path('/mnt/data/f98661ad-9a6b-4c23-84f2-d2d831e50bfb.png')
+
+html = src.read_text(encoding='utf-8')
+img_b64 = base64.b64encode(img.read_bytes()).decode('ascii')
+data_uri = f"data:image/png;base64,{img_b64}"
+
+# 1) Add zombie image + gun styling after the first-person zombie CSS.
+insert_css = r'''
+/* 실제 좀비 이미지 */
+.fpZombieImage{
+    position:absolute;
+    inset:0;
+    z-index:5;
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
+    filter:brightness(.72) saturate(.95);
 }
 
-body{
-    margin:0;
-    font-family:Arial,sans-serif;
-    background:#0b1020;
-    color:white;
+.fpZombieImage::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:radial-gradient(circle at center, transparent 25%, rgba(0,0,0,.42) 100%);
 }
 
-button{
-    border:0;
-    border-radius:12px;
-    padding:12px 18px;
-    margin:5px;
-    font-size:16px;
-    font-weight:bold;
-    cursor:pointer;
+/* 좀비 총 */
+.fpZombieGun{
+    position:absolute;
+    left:50%;
+    top:52%;
+    transform:translate(-50%,-50%);
+    z-index:12;
+    font-size:72px;
+    filter:drop-shadow(0 6px 6px rgba(0,0,0,.65));
 }
 
-button:hover:not(:disabled){
-    transform:scale(1.03);
+.zombieShootFlash{
+    animation:zshoot .22s;
 }
 
-button:disabled{
-    cursor:not-allowed;
-    opacity:.55;
+@keyframes zshoot{
+    0%{filter:brightness(1)}
+    50%{filter:brightness(2.1)}
+    100%{filter:brightness(1)}
 }
 
-.hidden{
-    display:none!important;
-}
-
-.screen{
-    min-height:100vh;
-    padding:20px;
-}
-
-/* 시작 */
-.startBox{
-    width:min(700px,95%);
-    margin:80px auto;
-    background:#182238;
-    padding:35px;
-    border-radius:25px;
-    text-align:center;
-    box-shadow:0 20px 60px rgba(0,0,0,.4);
-}
-
-.title{
-    font-size:46px;
-}
-
-.subtitle{
-    color:#bdc7d8;
-    margin-bottom:25px;
-}
-
-input,select{
-    width:100%;
-    padding:14px;
-    margin:8px 0;
-    border-radius:10px;
-    border:2px solid #394866;
-    background:#0d1424;
-    color:white;
-    font-size:16px;
-}
-
-.mainBtn{
-    width:100%;
-    background:#4c7dff;
-    color:white;
-}
-
-/* 상단 */
-.topbar{
+/* 총 상점 */
+.gunShopTitle{
     display:flex;
     align-items:center;
-    justify-content:space-between;
-    flex-wrap:wrap;
-    gap:10px;
-    background:#182238;
-    padding:15px;
-    border-radius:15px;
-    margin-bottom:20px;
-}
-
-.stats{
-    display:flex;
-    flex-wrap:wrap;
     gap:8px;
 }
+'''
 
-.stat{
-    background:#0f1729;
-    padding:9px 12px;
-    border-radius:10px;
-}
+marker = ".fpWeapon{"
+if insert_css not in html:
+    html = html.replace(marker, insert_css + "\n" + marker, 1)
 
-/* 메인 메뉴 */
-.menuGrid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-    gap:15px;
-}
-
-.menuButton{
-    min-height:110px;
-    background:#1d2d4b;
-    color:white;
-}
-
-/* 카드 */
-.cardGrid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-    gap:15px;
-}
-
-.card{
-    background:#182238;
-    padding:20px;
-    border-radius:18px;
-}
-
-.price{
-    color:#ffd45a;
-}
-
-/* 맵 */
-.gameWorld{
-    position:relative;
-    width:100%;
-    max-width:1000px;
-    height:600px;
-    margin:auto;
-    background:
-        linear-gradient(#31435f 1px,transparent 1px),
-        linear-gradient(90deg,#31435f 1px,transparent 1px);
-    background-size:40px 40px;
-    background-color:#263750;
-    border:4px solid #435a7d;
-    border-radius:20px;
-    overflow:hidden;
-}
-
-.school{
-    position:absolute;
-    background:#d7dce6;
-    color:#101827;
-    border-radius:14px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    text-align:center;
-}
-
-.worldPlayer{
-    position:absolute;
-    width:55px;
-    height:55px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:43px;
-    z-index:10;
-    user-select:none;
-}
-
-.worldZombie{
-    position:absolute;
-    width:55px;
-    height:55px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:40px;
-    z-index:8;
-}
-
-/* 1인칭 */
-.firstPersonView{
-    position:relative;
-    width:100%;
-    height:360px;
-    overflow:hidden;
-    border-radius:20px;
-    background:
-        linear-gradient(
-            to bottom,
-            #17243b 0%,
-            #273b5b 55%,
-            #191c23 56%,
-            #08090c 100%
-        );
-    border:3px solid #42587d;
-    margin-bottom:18px;
-}
-
-/* 십자 조준점 */
-.firstPersonView::before{
-    content:"";
-    position:absolute;
-    left:50%;
-    top:50%;
-    width:10px;
-    height:10px;
-    background:white;
-    border-radius:50%;
-    transform:translate(-50%,-50%);
-    z-index:15;
-    box-shadow:
-        0 0 0 2px rgba(0,0,0,.5);
-}
-
-/* 바닥 */
-.firstPersonView::after{
-    content:"";
-    position:absolute;
-    left:0;
-    right:0;
-    bottom:0;
-    height:38%;
-    background:
-        repeating-linear-gradient(
-            0deg,
-            rgba(255,255,255,.03),
-            rgba(255,255,255,.03) 2px,
-            transparent 2px,
-            transparent 25px
-        );
-}
-
-/* 1인칭 좀비 */
-.fpZombie{
-    position:absolute;
-    left:50%;
-    top:45%;
-    transform:translate(-50%,-50%);
-    font-size:130px;
-    z-index:10;
-    transition:.2s;
-    filter:drop-shadow(0 8px 8px rgba(0,0,0,.5));
-}
-
-/* 무기 */
-.fpWeapon{
-    position:absolute;
-    right:9%;
-    bottom:-5px;
-    font-size:125px;
-    z-index:20;
-    transform:rotate(-8deg);
-    filter:drop-shadow(0 5px 5px rgba(0,0,0,.5));
-}
-
-/* 피격 효과 */
-.hitFlash{
-    animation:hit .25s;
-}
-
-@keyframes hit{
-    0%{filter:brightness(1);}
-    50%{filter:brightness(2);}
-    100%{filter:brightness(1);}
-}
-
-/* 전투 */
-.battleBox{
-    max-width:1100px;
-    margin:auto;
-    background:#182238;
-    padding:20px;
-    border-radius:22px;
-}
-
-.battleInfo{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:12px;
-}
-
-.fighter{
-    background:#101827;
-    padding:15px;
-    border-radius:15px;
-}
-
-.hpBar{
-    width:100%;
-    height:24px;
-    background:#333d50;
-    border-radius:20px;
-    overflow:hidden;
-    margin:8px 0;
-}
-
-.hpFill{
-    height:100%;
-    width:100%;
-    background:#3fd47b;
-    transition:width .25s;
-}
-
-.enemyBar .hpFill{
-    background:#e85b63;
-}
-
-.questionBox{
-    background:#101827;
-    border-radius:18px;
-    padding:20px;
-    margin-top:15px;
-}
-
-.questionText{
-    font-size:25px;
-    line-height:1.5;
-    margin:15px 0;
-}
-
-.answers{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:10px;
-}
-
-.answerBtn{
-    min-height:65px;
-    background:#304665;
-    color:white;
-}
-
-.answerBtn:hover:not(:disabled){
-    background:#45628d;
-}
-
-.battleButtons{
-    text-align:center;
-    margin-top:15px;
-}
-
-.skillBtn{
-    background:#945af0;
-    color:white;
-}
-
-.itemBtn{
-    background:#32a76c;
-    color:white;
-}
-
-/* 모달 */
-.modal{
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.72);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    z-index:200;
-}
-
-.modalBox{
-    width:min(600px,92%);
-    background:#182238;
-    padding:25px;
-    border-radius:20px;
-    text-align:center;
-}
-
-.success{
-    color:#63e58c;
-}
-
-.danger{
-    color:#ff7373;
-}
-
-.info{
-    color:#8fb5ff;
-}
-
-@media(max-width:700px){
-    .title{
-        font-size:34px;
-    }
-
-    .answers,
-    .battleInfo{
-        grid-template-columns:1fr;
-    }
-
-    .gameWorld{
-        height:450px;
-    }
-
-    .fpWeapon{
-        right:3%;
-        font-size:95px;
-    }
-
-    .fpZombie{
-        font-size:100px;
-    }
-}
-</style>
-</head>
-
-<body>
-
-<!-- ================= START ================= -->
-
-<section id="startScreen" class="screen">
-
-    <div class="startBox">
-
-        <div class="title">🧟 공부 좀비 퇴치</div>
-
-        <div class="subtitle">
-            공부하고 좀비를 물리쳐 학교를 구하자!
-        </div>
-
-        <input
-            id="nicknameInput"
-            placeholder="닉네임을 입력하세요">
-
-        <select id="difficultySelect">
-
-            <option value="easy">
-                🟢 쉬움
-            </option>
-
-            <option value="normal" selected>
-                🟡 보통
-            </option>
-
-            <option value="hard">
-                🔴 어려움
-            </option>
-
-            <option value="hell">
-                💀 지옥
-            </option>
-
-        </select>
-
-        <button
-            class="mainBtn"
-            onclick="startGame()">
-            ▶ 게임 시작
-        </button>
-
-        <p id="startMessage"></p>
-
-    </div>
-
-</section>
-
-<!-- ================= MAIN ================= -->
-
-<section id="mainScreen" class="screen hidden">
-
-    <div class="topbar">
-
-        <b>🧟 공부 좀비 퇴치</b>
-
-        <div class="stats">
-
-            <div class="stat">
-                👤 <span id="playerName"></span>
-            </div>
-
-            <div class="stat">
-                ⭐ Lv.<span id="levelText">1</span>
-            </div>
-
-            <div class="stat">
-                ✨ <span id="xpText">0</span>/100
-            </div>
-
-            <div class="stat">
-                🪙 <span id="coinText">0</span>
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="menuGrid">
-
-        <button class="menuButton" onclick="showMap()">
-            🗺️<br>학교 맵
-        </button>
-
-        <button class="menuButton" onclick="showCharacters()">
-            🧑‍🎤<br>캐릭터
-        </button>
-
-        <button class="menuButton" onclick="showShop()">
-            🛒<br>무기
-        </button>
-
-        <button class="menuButton" onclick="showQuest()">
-            🎯<br>퀘스트
-        </button>
-
-        <button class="menuButton" onclick="showAchievements()">
-            🏆<br>업적
-        </button>
-
-        <button class="menuButton" onclick="showRanking()">
-            🥇<br>랭킹
-        </button>
-
-        <button class="menuButton" onclick="showStats()">
-            📈<br>학습 통계
-        </button>
-
-        <button class="menuButton" onclick="showAttendance()">
-            🎁<br>출석
-        </button>
-
-        <button class="menuButton" onclick="manualSave()">
-            💾<br>저장
-        </button>
-
-        <button class="menuButton" onclick="resetGame()">
-            ⚙️<br>초기화
-        </button>
-
-    </div>
-
-</section>
-
-<!-- ================= CONTENT ================= -->
-
-<section id="contentScreen" class="screen hidden">
-
-    <div class="topbar">
-
-        <button onclick="goMain()">
-            🏠 메인
-        </button>
-
-        <div class="stats">
-
-            <div class="stat">
-                ⭐ Lv.<span id="levelText2">1</span>
-            </div>
-
-            <div class="stat">
-                ✨ <span id="xpText2">0</span>/100
-            </div>
-
-            <div class="stat">
-                🪙 <span id="coinText2">0</span>
-            </div>
-
-        </div>
-
-    </div>
-
-    <div id="content"></div>
-
-</section>
-
-<!-- ================= BATTLE ================= -->
-
-<section id="battleScreen" class="screen hidden">
-
-    <div class="topbar">
-
-        <button onclick="exitBattle()">
-            🏠 나가기
-        </button>
-
-        <div class="stats">
-
-            <div class="stat">
-                ⭐ Lv.<span id="battleLevel">1</span>
-            </div>
-
-            <div class="stat">
-                🔥 콤보 <span id="comboText">0</span>
-            </div>
-
-            <div class="stat">
-                ⚡ 필살기 <span id="skillText">0</span>/5
-            </div>
-
-            <div class="stat">
-                🪙 <span id="battleCoins">0</span>
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="battleBox">
-
-        <!-- 1인칭 화면 -->
-
-        <div id="firstPersonView"
+# 2) Add image/gun to the first-person view.
+old_fp = '''<div id="firstPersonView"
              class="firstPersonView">
 
             <div id="fpZombie"
@@ -625,1837 +75,172 @@ input,select{
                 🥊
             </div>
 
-        </div>
+        </div>'''
 
-        <!-- 정보 -->
+new_fp = f'''<div id="firstPersonView"
+             class="firstPersonView">
 
-        <div class="battleInfo">
-
-            <div class="fighter">
-
-                <h3>
-                    🧑‍🎓
-                    <span id="battleCharacterName">
-                        기본 학생
-                    </span>
-                </h3>
-
-                <div>
-                    ❤️ 건강:
-                    <span id="playerHpText">
-                        100
-                    </span>
-                    /
-                    <span id="playerMaxHpText">
-                        100
-                    </span>
-                </div>
-
-                <div class="hpBar">
-
-                    <div
-                        id="playerHpFill"
-                        class="hpFill">
-                    </div>
-
-                </div>
-
-                <div>
-                    ⚔️ 공격력:
-                    <span id="battleAttack">
-                        20
-                    </span>
-                </div>
-
+            <div id="fpZombieImage"
+                 class="fpZombieImage"
+                 style="background-image:url('{data_uri}');">
             </div>
 
-            <div class="fighter enemyBar">
-
-                <h3 id="zombieName">
-                    🧟 일반 좀비
-                </h3>
-
-                <div>
-                    🔥 레벨:
-                    <span id="zombieLevelText">
-                        100
-                    </span>
-                </div>
-
-                <div>
-                    ❤️ 건강:
-                    <span id="zombieHpText">
-                        50
-                    </span>
-                    /
-                    <span id="zombieMaxHpText">
-                        50
-                    </span>
-                </div>
-
-                <div class="hpBar">
-
-                    <div
-                        id="zombieHpFill"
-                        class="hpFill">
-                    </div>
-
-                </div>
-
+            <div id="fpZombie"
+                 class="fpZombie" style="display:none;">
+                🧟
             </div>
 
-        </div>
-
-        <!-- 문제 -->
-
-        <div class="questionBox">
-
-            <div class="info">
-                📚 <span id="subjectText">
-                    수학
-                </span>
+            <div id="fpZombieGun"
+                 class="fpZombieGun">
+                🔫
             </div>
 
-            <div class="info">
-                🎚️ <span id="questionDifficultyText">
-                    보통
-                </span>
+            <div id="fpWeapon"
+                 class="fpWeapon">
+                🥊
             </div>
 
-            <div
-                id="questionText"
-                class="questionText">
-                문제가 나옵니다.
-            </div>
+        </div>'''
 
-            <div id="answers"
-                 class="answers">
-            </div>
+if old_fp in html:
+    html = html.replace(old_fp, new_fp, 1)
 
-            <div class="battleButtons">
-
-                <button
-                    class="skillBtn"
-                    onclick="useSkill()">
-                    ⚡ 필살기
-                </button>
-
-                <button
-                    class="itemBtn"
-                    onclick="useHeal()">
-                    🧪 회복약
-                </button>
-
-            </div>
-
-            <p id="battleMessage"></p>
-
-        </div>
-
-    </div>
-
-</section>
-
-<!-- ================= MODAL ================= -->
-
-<div id="modal"
-     class="modal hidden">
-
-    <div class="modalBox">
-
-        <h2 id="modalTitle"></h2>
-
-        <p id="modalText"></p>
-
-        <button onclick="closeModal()">
-            확인
-        </button>
-
-    </div>
-
-</div>
-
-<script>
-
+# 3) Add gun data after weapons object.
+gun_block = r'''
 /* =========================================================
-   기본 데이터
+   총 상점
 ========================================================= */
 
-const defaultGame = {
-
-    nickname:"",
-    difficulty:"normal",
-
-    level:1,
-    xp:0,
-    coins:0,
-
-    maxHp:100,
-    hp:100,
-
-    baseAttack:10,
-    defense:5,
-
-    character:"basic",
-    weapon:"fist",
-
-    ownedCharacters:["basic"],
-    ownedWeapons:["fist"],
-
-    unlockedMaps:["gate"],
-
-    totalQuestions:0,
-    correctQuestions:0,
-
-    zombiesDefeated:0,
-    bossesDefeated:0,
-
-    attendance:0,
-    lastAttendance:"",
-
-    dailyQuestProgress:{
-        zombies:0,
-        questions:0,
-        boss:0
-    },
-
-    highestCombo:0
-};
-
-let game = loadGame();
-
-let currentBattle = null;
-let currentQuestion = null;
-
-/* ⭐ 문제 중복 클릭 방지 */
-let answering = false;
-
-let combo = 0;
-let skillCharge = 0;
-let healCount = 3;
-
-/* WASD */
-let keys = {
-    w:false,
-    a:false,
-    s:false,
-    d:false
-};
-
-let playerX = 80;
-let playerY = 80;
-
-let worldZombies = [];
-
-let collisionLock = false;
-
-
-/* =========================================================
-   캐릭터
-========================================================= */
-
-const characters = {
-
-    basic:{
-        name:"기본 학생",
-        emoji:"🧑‍🎓",
-        price:0,
-        attack:0,
-        hp:0,
-        defense:0
-    },
-
-    ninja:{
-        name:"닌자 학생",
-        emoji:"🥷",
-        price:100,
-        attack:3,
-        hp:0,
-        defense:1
-    },
-
-    scientist:{
-        name:"과학자",
-        emoji:"🧑‍🔬",
-        price:250,
-        attack:6,
-        hp:15,
-        defense:2
-    },
-
-    wizard:{
-        name:"지식 마법사",
-        emoji:"🧙",
+const guns = {
+    pistol:{
+        name:"권총",
+        emoji:"🔫",
         price:500,
-        attack:10,
-        hp:25,
-        defense:3
-    },
-
-    robot:{
-        name:"로봇 학생",
-        emoji:"🤖",
-        price:1000,
-        attack:15,
-        hp:40,
-        defense:8
-    },
-
-    studyKing:{
-        name:"공부왕",
-        emoji:"👑",
-        price:3000,
-        attack:25,
-        hp:60,
-        defense:12
-    }
-};
-
-
-/* =========================================================
-   무기
-========================================================= */
-
-const weapons = {
-
-    fist:{
-        name:"공부 주먹",
-        emoji:"🥊",
-        price:0,
-        attack:10
-    },
-
-    book:{
-        name:"교과서 검",
-        emoji:"📚",
-        price:100,
-        attack:25
-    },
-
-    pencil:{
-        name:"연필 활",
-        emoji:"✏️",
-        price:250,
-        attack:35
-    },
-
-    ruler:{
-        name:"수학 자",
-        emoji:"📐",
-        price:500,
-        attack:50
-    },
-
-    science:{
-        name:"과학 지팡이",
-        emoji:"🧪",
-        price:800,
-        attack:70
-    },
-
-    laser:{
-        name:"지식 레이저",
-        emoji:"⚡",
-        price:1500,
-        attack:100
-    },
-
-    kingSword:{
-        name:"공부왕 검",
-        emoji:"👑",
-        price:3000,
-        attack:160
-    }
-};
-
-
-/* =========================================================
-   좀비
-   요청한 높은 레벨/건강
-========================================================= */
-
-const zombies = {
-
-    normal:{
-        name:"일반 좀비",
-        emoji:"🧟",
-        level:100,
-        hp:50,
-        attack:10,
-        xp:30,
-        coin:10
-    },
-
-    smart:{
-        name:"똑똑 좀비",
-        emoji:"🧠🧟",
-        level:500,
-        hp:150,
-        attack:25,
-        xp:80,
-        coin:30
-    },
-
-    fast:{
-        name:"빠른 좀비",
-        emoji:"🏃🧟",
-        level:550,
-        hp:1000,
-        attack:35,
-        xp:120,
-        coin:50
-    },
-
-    armor:{
-        name:"철갑 좀비",
-        emoji:"🛡️🧟",
-        level:700,
-        hp:300,
         attack:30,
-        xp:100,
-        coin:40,
-        defense:15
+        ammo:12,
+        maxAmmo:60
     },
-
-    giant:{
-        name:"거대 좀비",
-        emoji:"👹",
-        level:1000,
-        hp:800,
+    smg:{
+        name:"연사 권총",
+        emoji:"🔫",
+        price:1000,
         attack:50,
-        xp:250,
-        coin:100
+        ammo:30,
+        maxAmmo:120
     },
-
-    boss:{
-        name:"학교 좀비왕",
-        emoji:"👑🧟",
-        level:5000,
-        hp:5000,
+    rifle:{
+        name:"소총",
+        emoji:"🔫",
+        price:2000,
         attack:80,
-        xp:1000,
-        coin:500
+        ammo:30,
+        maxAmmo:120
+    },
+    laserGun:{
+        name:"레이저건",
+        emoji:"⚡",
+        price:5000,
+        attack:150,
+        ammo:20,
+        maxAmmo:100
+    },
+    knowledgeCannon:{
+        name:"지식 캐논",
+        emoji:"💥",
+        price:10000,
+        attack:300,
+        ammo:5,
+        maxAmmo:25
     }
 };
-
-
-/* =========================================================
-   맵
-========================================================= */
-
-const maps = [
-
-    {
-        id:"gate",
-        name:"🏫 학교 정문",
-        description:"학교의 입구"
-    },
-
-    {
-        id:"playground",
-        name:"🏃 운동장",
-        description:"빠른 좀비가 등장"
-    },
-
-    {
-        id:"classroom",
-        name:"📚 교실",
-        description:"국어와 수학"
-    },
-
-    {
-        id:"science",
-        name:"🔬 과학실",
-        description:"과학 문제"
-    },
-
-    {
-        id:"library",
-        name:"📖 도서관",
-        description:"국어와 사회"
-    },
-
-    {
-        id:"gym",
-        name:"🏋️ 체육관",
-        description:"강한 좀비"
-    },
-
-    {
-        id:"lab",
-        name:"🧪 연구실",
-        description:"특수 좀비"
-    },
-
-    {
-        id:"roof",
-        name:"👑 옥상",
-        description:"최종 보스"
-    }
-
-];
-
-
-/* =========================================================
-   문제
-========================================================= */
-
-const questionBank = [
-
-    {
-        subject:"🇰🇷 국어",
-        type:"korean",
-        questions:[
-
-            {
-                q:"다음 중 맞는 표현은?",
-                a:[
-                    "왠일이야",
-                    "웬일이야",
-                    "왠일 이야",
-                    "웬일 이야"
-                ],
-                answer:1
-            },
-
-            {
-                q:"'학교'의 품사는?",
-                a:[
-                    "명사",
-                    "동사",
-                    "부사",
-                    "관형사"
-                ],
-                answer:0
-            },
-
-            {
-                q:"'달린다'의 품사는?",
-                a:[
-                    "명사",
-                    "동사",
-                    "부사",
-                    "대명사"
-                ],
-                answer:1
-            }
-
-        ]
-    },
-
-    {
-        subject:"➗ 수학",
-        type:"math",
-        questions:[
-
-            {
-                q:"25 + 37 = ?",
-                a:["52","62","72","82"],
-                answer:1
-            },
-
-            {
-                q:"8 × 7 = ?",
-                a:["54","56","64","48"],
-                answer:1
-            },
-
-            {
-                q:"100 - 38 = ?",
-                a:["52","62","72","58"],
-                answer:1
-            },
-
-            {
-                q:"3/4 + 1/4 = ?",
-                a:["1/2","1","2","3/4"],
-                answer:1
-            },
-
-            {
-                q:"12 × 5 = ?",
-                a:["50","60","70","65"],
-                answer:1
-            }
-
-        ]
-    },
-
-    {
-        subject:"🔬 과학",
-        type:"science",
-        questions:[
-
-            {
-                q:"식물이 햇빛을 이용해 양분을 만드는 것은?",
-                a:[
-                    "호흡",
-                    "광합성",
-                    "증발",
-                    "응결"
-                ],
-                answer:1
-            },
-
-            {
-                q:"물이 얼면 무엇이 되는가?",
-                a:[
-                    "수증기",
-                    "얼음",
-                    "소금",
-                    "공기"
-                ],
-                answer:1
-            },
-
-            {
-                q:"지구가 태양 주위를 도는 운동은?",
-                a:[
-                    "자전",
-                    "공전",
-                    "진동",
-                    "회전"
-                ],
-                answer:1
-            }
-
-        ]
-    },
-
-    {
-        subject:"🌏 사회",
-        type:"social",
-        questions:[
-
-            {
-                q:"대한민국의 수도는?",
-                a:[
-                    "부산",
-                    "서울",
-                    "대전",
-                    "인천"
-                ],
-                answer:1
-            },
-
-            {
-                q:"우리나라의 국기는?",
-                a:[
-                    "태극기",
-                    "성조기",
-                    "일장기",
-                    "오성홍기"
-                ],
-                answer:0
-            },
-
-            {
-                q:"조선의 첫 번째 왕은?",
-                a:[
-                    "세종",
-                    "태조",
-                    "정조",
-                    "영조"
-                ],
-                answer:1
-            }
-
-        ]
-    },
-
-    {
-        subject:"🇺🇸 영어",
-        type:"english",
-        questions:[
-
-            {
-                q:"Apple의 뜻은?",
-                a:[
-                    "바나나",
-                    "사과",
-                    "포도",
-                    "오렌지"
-                ],
-                answer:1
-            },
-
-            {
-                q:"Book의 뜻은?",
-                a:[
-                    "책",
-                    "학교",
-                    "연필",
-                    "의자"
-                ],
-                answer:0
-            },
-
-            {
-                q:"'안녕하세요'를 영어로?",
-                a:[
-                    "Goodbye",
-                    "Hello",
-                    "Thanks",
-                    "Sorry"
-                ],
-                answer:1
-            }
-
-        ]
-    }
-
-];
-
-
-/* =========================================================
-   저장
-========================================================= */
-
-function loadGame(){
-
-    try{
-
-        const saved =
-            localStorage.getItem(
-                "studyZombieGame"
-            );
-
-        if(saved){
-
-            return {
-                ...JSON.parse(
-                    JSON.stringify(defaultGame)
-                ),
-                ...JSON.parse(saved)
-            };
-        }
-
-    }catch(e){
-
-        console.error(e);
-
-    }
-
-    return JSON.parse(
-        JSON.stringify(defaultGame)
-    );
-}
-
-function saveSilent(){
-
-    localStorage.setItem(
-        "studyZombieGame",
-        JSON.stringify(game)
-    );
-}
-
-function manualSave(){
-
-    saveSilent();
-
-    showModal(
-        "💾 저장 완료",
-        "게임 진행 상황이 저장되었습니다."
-    );
-}
-
-
-/* =========================================================
-   시작
-========================================================= */
-
-function startGame(){
-
-    const nickname =
-        document.getElementById(
-            "nicknameInput"
-        ).value.trim();
-
-    const difficulty =
-        document.getElementById(
-            "difficultySelect"
-        ).value;
-
-    if(!nickname){
-
-        document.getElementById(
-            "startMessage"
-        ).textContent =
-            "닉네임을 입력해주세요!";
-
-        return;
-    }
-
-    game.nickname = nickname;
-    game.difficulty = difficulty;
-
-    checkAttendance();
-
-    saveSilent();
-
-    document.getElementById(
-        "startScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "mainScreen"
-    ).classList.remove("hidden");
+'''
+
+# place before zombie comment
+if "const guns = {" not in html:
+    html = html.replace("/* =========================================================\n   좀비\n", gun_block + "\n\n/* =========================================================\n   좀비\n", 1)
+
+# 4) Extend default save data.
+html = html.replace(
+    'ownedWeapons:["fist"],',
+    'ownedWeapons:["fist"],\n\n    ownedGuns:[],\n    gun:"pistol",\n    ammo:0,',
+    1
+)
+
+# 5) Add a gun shop button to main menu.
+old_menu = '''<button class="menuButton" onclick="showShop()">
+            🛒<br>무기
+        </button>'''
+new_menu = old_menu + '''
+
+        <button class="menuButton" onclick="showGunShop()">
+            🔫<br>총 상점
+        </button>'''
+html = html.replace(old_menu, new_menu, 1)
+
+# 6) Add ammo display in battle topbar.
+html = html.replace(
+    '''<div class="stat">
+                🪙 <span id="battleCoins">0</span>
+            </div>''',
+    '''<div class="stat">
+                🪙 <span id="battleCoins">0</span>
+            </div>
+
+            <div class="stat">
+                🔫 <span id="ammoText">0</span>
+            </div>''',
+    1
+)
+
+# 7) Add zombie shooting warning under question box.
+html = html.replace(
+    '<p id="battleMessage"></p>',
+    '<p id="battleMessage"></p>\n            <p id="zombieGunMessage" class="danger"></p>',
+    1
+)
+
+# 8) Update battle UI to set ammo and show zombie gun.
+html = html.replace(
+    '''function updateBattleUI(){
+
+    if(!currentBattle)
+        return;''',
+    '''function updateBattleUI(){
+
+    if(!currentBattle)
+        return;''',
+    1
+)
+
+# Add ammo assignment near updateUI(); inside updateBattleUI only.
+needle = '''    document.getElementById(
+        "fpWeapon"
+    ).textContent =
+        w.emoji;
 
     updateUI();
-}
+}'''
+replacement = '''    document.getElementById(
+        "fpWeapon"
+    ).textContent =
+        w.emoji;
 
-function checkAttendance(){
+    document.getElementById(
+        "fpZombieGun"
+    ).textContent =
+        "🔫";
 
-    const today =
-        new Date()
-        .toISOString()
-        .slice(0,10);
-
-    if(game.lastAttendance !== today){
-
-        game.attendance++;
-
-        if(game.attendance > 7){
-            game.attendance = 1;
-        }
-
-        const reward =
-            10 + game.attendance * 5;
-
-        game.coins += reward;
-
-        game.lastAttendance = today;
+    if(document.getElementById("ammoText")){
+        document.getElementById("ammoText").textContent =
+            game.gun ? (game.ammo ?? 0) : 0;
     }
-}
-
-
-/* =========================================================
-   UI
-========================================================= */
-
-function updateUI(){
-
-    document.getElementById(
-        "playerName"
-    ).textContent =
-        game.nickname;
-
-    document.getElementById(
-        "levelText"
-    ).textContent =
-        game.level;
-
-    document.getElementById(
-        "xpText"
-    ).textContent =
-        game.xp;
-
-    document.getElementById(
-        "coinText"
-    ).textContent =
-        game.coins;
-
-    if(
-        document.getElementById(
-            "levelText2"
-        )
-    ){
-
-        document.getElementById(
-            "levelText2"
-        ).textContent =
-            game.level;
-
-        document.getElementById(
-            "xpText2"
-        ).textContent =
-            game.xp;
-
-        document.getElementById(
-            "coinText2"
-        ).textContent =
-            game.coins;
-    }
-
-    if(
-        document.getElementById(
-            "battleLevel"
-        )
-    ){
-
-        document.getElementById(
-            "battleLevel"
-        ).textContent =
-            game.level;
-
-        document.getElementById(
-            "battleCoins"
-        ).textContent =
-            game.coins;
-
-        document.getElementById(
-            "comboText"
-        ).textContent =
-            combo;
-
-        document.getElementById(
-            "skillText"
-        ).textContent =
-            skillCharge;
-    }
-}
-
-function goMain(){
-
-    document.getElementById(
-        "contentScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "battleScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "mainScreen"
-    ).classList.remove("hidden");
-
-    currentBattle = null;
-    currentQuestion = null;
-
-    answering = false;
 
     updateUI();
-}
-
-
-/* =========================================================
-   학교 맵
-========================================================= */
-
-function showMap(){
-
-    document.getElementById(
-        "mainScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "contentScreen"
-    ).classList.remove("hidden");
-
-    document.getElementById(
-        "content"
-    ).innerHTML = `
-
-        <h1>🗺️ 학교 맵</h1>
-
-        <p>
-            🎮 <b>W A S D</b> 로 이동하세요.
-            🧟 좀비에게 가까이 가면 전투가 시작됩니다.
-        </p>
-
-        <div
-            id="gameWorld"
-            class="gameWorld">
-
-            <div
-                class="school"
-                style="
-                    left:20px;
-                    top:20px;
-                    width:180px;
-                    height:100px;
-                ">
-                📚 교실
-            </div>
-
-            <div
-                class="school"
-                style="
-                    left:260px;
-                    top:20px;
-                    width:180px;
-                    height:100px;
-                ">
-                🔬 과학실
-            </div>
-
-            <div
-                class="school"
-                style="
-                    right:20px;
-                    top:20px;
-                    width:180px;
-                    height:100px;
-                ">
-                📖 도서관
-            </div>
-
-            <div
-                class="school"
-                style="
-                    left:20px;
-                    top:190px;
-                    width:200px;
-                    height:120px;
-                ">
-                🏋️ 체육관
-            </div>
-
-            <div
-                class="school"
-                style="
-                    left:320px;
-                    top:190px;
-                    width:220px;
-                    height:120px;
-                ">
-                🧪 연구실
-            </div>
-
-            <div
-                class="school"
-                style="
-                    right:20px;
-                    top:190px;
-                    width:170px;
-                    height:120px;
-                ">
-                🪜 계단
-            </div>
-
-            <div
-                class="school"
-                style="
-                    left:220px;
-                    bottom:50px;
-                    width:250px;
-                    height:100px;
-                ">
-                🏫 본관
-            </div>
-
-            <div
-                id="worldPlayer"
-                class="worldPlayer">
-                ${characters[game.character].emoji}
-            </div>
-
-            <div
-                style="
-                    position:absolute;
-                    left:15px;
-                    bottom:15px;
-                    background:rgba(0,0,0,.65);
-                    padding:10px 14px;
-                    border-radius:10px;
-                    z-index:30;
-                ">
-                🎮 W A S D 이동
-            </div>
-
-        </div>
-    `;
-
-    playerX = 80;
-    playerY = 80;
-
-    spawnWorldZombies();
-
-    updateWorldPlayer();
-}
-
-function spawnWorldZombies(){
-
-    const world =
-        document.getElementById(
-            "gameWorld"
-        );
-
-    if(!world) return;
-
-    document.querySelectorAll(
-        ".worldZombie"
-    ).forEach(
-        z => z.remove()
-    );
-
-    worldZombies = [];
-
-    const count =
-        Math.min(
-            4 + Math.floor(game.level / 5),
-            10
-        );
-
-    for(
-        let i=0;
-        i<count;
-        i++
-    ){
-
-        const types = [
-            "normal",
-            "normal",
-            "smart",
-            "fast"
-        ];
-
-        const type =
-            types[
-                Math.floor(
-                    Math.random() *
-                    types.length
-                )
-            ];
-
-        const z =
-            document.createElement(
-                "div"
-            );
-
-        z.className =
-            "worldZombie";
-
-        z.textContent =
-            zombies[type].emoji;
-
-        const x =
-            80 +
-            Math.random() *
-            Math.max(
-                100,
-                world.clientWidth - 140
-            );
-
-        const y =
-            130 +
-            Math.random() *
-            Math.max(
-                100,
-                world.clientHeight - 210
-            );
-
-        z.style.left =
-            x + "px";
-
-        z.style.top =
-            y + "px";
-
-        world.appendChild(z);
-
-        worldZombies.push({
-
-            element:z,
-            type:type,
-            x:x,
-            y:y
-
-        });
-    }
-}
-
-
-/* =========================================================
-   WASD
-========================================================= */
-
-document.addEventListener(
-    "keydown",
-    function(e){
-
-        const key =
-            e.key.toLowerCase();
-
-        if(
-            ["w","a","s","d"]
-            .includes(key)
-        ){
-
-            keys[key] = true;
-
-            const content =
-                document.getElementById(
-                    "contentScreen"
-                );
-
-            if(
-                content &&
-                !content.classList.contains(
-                    "hidden"
-                )
-            ){
-
-                e.preventDefault();
-            }
-        }
-    }
-);
-
-document.addEventListener(
-    "keyup",
-    function(e){
-
-        const key =
-            e.key.toLowerCase();
-
-        if(
-            ["w","a","s","d"]
-            .includes(key)
-        ){
-
-            keys[key] = false;
-        }
-    }
-);
-
-window.addEventListener(
-    "blur",
-    function(){
-
-        keys.w = false;
-        keys.a = false;
-        keys.s = false;
-        keys.d = false;
-
-    }
-);
-
-
-/* =========================================================
-   플레이어 이동
-========================================================= */
-
-function movePlayer(){
-
-    const world =
-        document.getElementById(
-            "gameWorld"
-        );
-
-    if(
-        world &&
-        !document.getElementById(
-            "contentScreen"
-        ).classList.contains(
-            "hidden"
-        )
-    ){
-
-        const speed = 3;
-
-        if(keys.w)
-            playerY -= speed;
-
-        if(keys.s)
-            playerY += speed;
-
-        if(keys.a)
-            playerX -= speed;
-
-        if(keys.d)
-            playerX += speed;
-
-        const maxX =
-            world.clientWidth - 55;
-
-        const maxY =
-            world.clientHeight - 55;
-
-        playerX =
-            Math.max(
-                0,
-                Math.min(
-                    maxX,
-                    playerX
-                )
-            );
-
-        playerY =
-            Math.max(
-                0,
-                Math.min(
-                    maxY,
-                    playerY
-                )
-            );
-
-        updateWorldPlayer();
-
-        checkZombieCollision();
-    }
-
-    requestAnimationFrame(
-        movePlayer
-    );
-}
-
-function updateWorldPlayer(){
-
-    const player =
-        document.getElementById(
-            "worldPlayer"
-        );
-
-    if(!player) return;
-
-    player.style.left =
-        playerX + "px";
-
-    player.style.top =
-        playerY + "px";
-}
-
-movePlayer();
-
-
-/* =========================================================
-   좀비 충돌
-========================================================= */
-
-function checkZombieCollision(){
-
-    if(collisionLock) return;
-
-    for(
-        let i=0;
-        i<worldZombies.length;
-        i++
-    ){
-
-        const z =
-            worldZombies[i];
-
-        const dx =
-            playerX - z.x;
-
-        const dy =
-            playerY - z.y;
-
-        const distance =
-            Math.sqrt(
-                dx*dx +
-                dy*dy
-            );
-
-        if(distance < 65){
-
-            collisionLock = true;
-
-            if(z.element){
-                z.element.remove();
-            }
-
-            worldZombies.splice(i,1);
-
-            startBattle(
-                z.type
-            );
-
-            setTimeout(
-                ()=>{
-                    collisionLock = false;
-                },
-                700
-            );
-
-            break;
-        }
-    }
-}
-
-
-/* =========================================================
-   전투 시작
-========================================================= */
-
-function startBattle(type){
-
-    document.getElementById(
-        "contentScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "battleScreen"
-    ).classList.remove("hidden");
-
-    combo = 0;
-    skillCharge = 0;
-    healCount = 3;
-
-    const z =
-        zombies[type];
-
-    const scale =
-        Math.max(
-            0,
-            game.level - 1
-        ) * 0.03;
-
-    currentBattle = {
-
-        zombieType:type,
-
-        zombieMaxHp:
-            Math.floor(
-                z.hp * (1 + scale)
-            ),
-
-        zombieHp:
-            Math.floor(
-                z.hp * (1 + scale)
-            ),
-
-        zombieAttack:
-            Math.floor(
-                z.attack * (1 + scale)
-            )
-
-    };
-
-    game.hp =
-        getPlayerMaxHp();
-
-    updateBattleUI();
-
-    newQuestion();
-}
-
-
-/* =========================================================
-   문제 생성
-========================================================= */
-
-function newQuestion(){
-
-    answering = false;
-
-    const category =
-        questionBank[
-            Math.floor(
-                Math.random() *
-                questionBank.length
-            )
-        ];
-
-    const question =
-        category.questions[
-            Math.floor(
-                Math.random() *
-                category.questions.length
-            )
-        ];
-
-    currentQuestion = {
-
-        ...question,
-        subject:category.subject
-
-    };
-
-    document.getElementById(
-        "subjectText"
-    ).textContent =
-        currentQuestion.subject;
-
-    document.getElementById(
-        "questionDifficultyText"
-    ).textContent =
-        difficultyName(
-            game.difficulty
-        );
-
-    document.getElementById(
-        "questionText"
-    ).textContent =
-        currentQuestion.q;
-
-    const answers =
-        document.getElementById(
-            "answers"
-        );
-
-    answers.innerHTML = "";
-
-    currentQuestion.a.forEach(
-        (answer,index)=>{
-
-            const btn =
-                document.createElement(
-                    "button"
-                );
-
-            btn.className =
-                "answerBtn";
-
-            btn.textContent =
-                `${index+1}. ${answer}`;
-
-            btn.onclick =
-                function(){
-
-                    answerQuestion(
-                        index
-                    );
-                };
-
-            answers.appendChild(btn);
-        }
-    );
-
-    updateBattleUI();
-}
-
-function difficultyName(d){
-
-    return {
-
-        easy:"🟢 쉬움",
-
-        normal:"🟡 보통",
-
-        hard:"🔴 어려움",
-
-        hell:"💀 지옥"
-
-    }[d];
-}
-
-function getDifficultyMultiplier(){
-
-    return {
-
-        easy:1,
-
-        normal:1.5,
-
-        hard:2,
-
-        hell:3
-
-    }[game.difficulty];
-}
-
-
-/* =========================================================
-   문제 정답
-========================================================= */
-
-function answerQuestion(index){
-
-    /* ⭐ 한 문제 한 번만 */
-    if(answering) return;
-
-    if(!currentQuestion) return;
-
-    answering = true;
-
-    /* ⭐ 모든 답 버튼 즉시 잠금 */
-    document.querySelectorAll(
-        ".answerBtn"
-    ).forEach(
-        btn => {
-            btn.disabled = true;
-        }
-    );
-
-    game.totalQuestions++;
-
-    const correct =
-        index ===
-        currentQuestion.answer;
-
-    if(correct){
-
-        game.correctQuestions++;
-
-        combo++;
-
-        if(
-            combo >
-            game.highestCombo
-        ){
-            game.highestCombo =
-                combo;
-        }
-
-        game.dailyQuestProgress
-            .questions =
-            (game.dailyQuestProgress.questions || 0)
-            + 1;
-
-        skillCharge =
-            Math.min(
-                5,
-                skillCharge + 1
-            );
-
-        let damage =
-            getPlayerAttack();
-
-        damage =
-            Math.floor(
-                damage *
-                getDifficultyMultiplier()
-            );
-
-        if(combo >= 3){
-
-            damage =
-                Math.floor(
-                    damage * 1.2
-                );
-        }
-
-        let critical = false;
-
-        if(
-            Math.random() < .15
-        ){
-
-            damage *= 2;
-            critical = true;
-        }
-
-        const z =
-            zombies[
-                currentBattle
-                    .zombieType
-            ];
-
-        if(z.defense){
-
-            damage =
-                Math.max(
-                    1,
-                    damage -
-                    z.defense
-                );
-        }
-
-        currentBattle.zombieHp =
-            Math.max(
-                0,
-                currentBattle.zombieHp -
-                damage
-            );
-
-        gainXP(
-            Math.floor(
-                10 *
-                getDifficultyMultiplier()
-            )
-        );
-
-        document.getElementById(
-            "battleMessage"
-        ).innerHTML =
-            `<span class="success">
-                ✅ 정답!
-                ${critical ? "💥 크리티컬!" : ""}
-                ⚔️ ${damage} 피해!
-            </span>`;
-
-        attackAnimation();
-
-        updateBattleUI();
-
-        if(
-            currentBattle.zombieHp <= 0
-        ){
-
-            setTimeout(
-                defeatZombie,
-                700
-            );
-
-        }else{
-
-            setTimeout(
-                newQuestion,
-                700
-            );
-        }
-
-    }else{
-
-        combo = 0;
-
-        /* ⭐ 좀비 공격 */
-        const damage =
-            Math.max(
-                1,
-                currentBattle.zombieAttack -
-                getPlayerDefense()
-            );
-
-        game.hp =
-            Math.max(
-                0,
-                game.hp -
-                damage
-            );
-
-        document.getElementById(
-            "battleMessage"
-        ).innerHTML =
-            `<span class="danger">
-                ❌ 오답!
-                🧟 좀비가 ${damage}
-                피해를 줬습니다.
-            </span>`;
-
-        hitAnimation();
-
-        updateBattleUI();
-
-        if(game.hp <= 0){
-
-            setTimeout(
-                gameOver,
-                700
-            );
-
-        }else{
-
-            setTimeout(
-                newQuestion,
-                1000
-            );
-        }
-    }
-
-    saveSilent();
-    updateUI();
-}
-
-
-/* =========================================================
-   공격 애니메이션
-========================================================= */
-
-function attackAnimation(){
-
-    const weapon =
-        document.getElementById(
-            "fpWeapon"
-        );
-
-    const zombie =
-        document.getElementById(
-            "fpZombie"
-        );
-
-    weapon.style.transform =
-        "rotate(-25deg) scale(1.15)";
-
-    zombie.style.transform =
-        "translate(-50%,-50%) scale(.92)";
-
-    setTimeout(
-        ()=>{
-            weapon.style.transform =
-                "rotate(-8deg)";
-
-            zombie.style.transform =
-                "translate(-50%,-50%) scale(1)";
-        },
-        180
-    );
-}
-
-function hitAnimation(){
-
-    const view =
-        document.getElementById(
-            "firstPersonView"
-        );
-
-    view.classList.remove(
-        "hitFlash"
-    );
-
-    void view.offsetWidth;
-
-    view.classList.add(
-        "hitFlash"
-    );
-}
-
-
-/* =========================================================
-   좀비 처치
-========================================================= */
-
-function defeatZombie(){
-
-    const z =
-        zombies[
-            currentBattle.zombieType
-        ];
-
-    const multiplier =
-        getDifficultyMultiplier();
-
-    const xp =
-        Math.floor(
-            z.xp * multiplier
-        );
-
-    const coins =
-        Math.floor(
-            z.coin * multiplier
-        );
-
-    gainXP(xp);
-
-    game.coins +=
-        coins;
-
-    game.zombiesDefeated++;
-
-    game.dailyQuestProgress
-        .zombies =
-        (game.dailyQuestProgress.zombies || 0)
-        + 1;
-
-    if(
-        currentBattle.zombieType ===
-        "boss"
-    ){
-
-        game.bossesDefeated++;
-
-        game.dailyQuestProgress
-            .boss =
-            (game.dailyQuestProgress.boss || 0)
-            + 1;
-    }
-
-    saveSilent();
-
-    showModal(
-        "💥 좀비 처치!",
-        `${z.name}<br>
-        ⭐ +${xp} XP<br>
-        🪙 +${coins} 코인`
-    );
-
-    setTimeout(
-        ()=>{
-            closeModal();
-            currentBattle = null;
-            showMap();
-        },
-        1000
-    );
-}
-
-
-/* =========================================================
-   능력치
-========================================================= */
-
-function getPlayerAttack(){
+}'''
+html = html.replace(needle, replacement, 1)
+
+# 9) Make getPlayerAttack prefer a gun when equipped.
+old_attack = '''function getPlayerAttack(){
 
     const c =
         characters[
@@ -2473,178 +258,8 @@ function getPlayerAttack(){
         w.attack +
         (game.level - 1) * 2
     );
-}
-
-function getPlayerDefense(){
-
-    const c =
-        characters[
-            game.character
-        ];
-
-    return (
-        game.defense +
-        c.defense +
-        Math.floor(
-            (game.level - 1) / 3
-        )
-    );
-}
-
-function getPlayerMaxHp(){
-
-    const c =
-        characters[
-            game.character
-        ];
-
-    return (
-        game.maxHp +
-        c.hp +
-        (game.level - 1) * 5
-    );
-}
-
-
-/* =========================================================
-   XP
-========================================================= */
-
-function gainXP(amount){
-
-    game.xp += amount;
-
-    while(
-        game.xp >= 100
-    ){
-
-        game.xp -= 100;
-
-        game.level++;
-
-        game.baseAttack += 2;
-
-        game.maxHp += 5;
-
-        game.defense += 1;
-
-        game.coins += 20;
-
-        showModal(
-            "🎉 레벨업!",
-            `⭐ Lv.${game.level}<br>
-             ⚔️ 공격력 +2<br>
-             ❤️ 건강 +5<br>
-             🛡️ 방어력 +1<br>
-             🪙 +20 코인`
-        );
-    }
-}
-
-
-/* =========================================================
-   필살기
-========================================================= */
-
-function useSkill(){
-
-    if(!currentBattle)
-        return;
-
-    if(skillCharge < 5){
-
-        showModal(
-            "⚡ 필살기",
-            `필살기 게이지가 부족합니다.<br>
-             현재 ${skillCharge}/5`
-        );
-
-        return;
-    }
-
-    if(answering){
-        return;
-    }
-
-    skillCharge = 0;
-
-    const damage =
-        getPlayerAttack() * 3;
-
-    currentBattle.zombieHp =
-        Math.max(
-            0,
-            currentBattle.zombieHp -
-            damage
-        );
-
-    document.getElementById(
-        "battleMessage"
-    ).innerHTML =
-        `<span class="success">
-            ⚡ 지식 폭발!
-            ${damage} 피해!
-        </span>`;
-
-    attackAnimation();
-
-    updateBattleUI();
-
-    if(
-        currentBattle.zombieHp <= 0
-    ){
-
-        setTimeout(
-            defeatZombie,
-            500
-        );
-    }
-}
-
-
-/* =========================================================
-   회복
-========================================================= */
-
-function useHeal(){
-
-    if(healCount <= 0){
-
-        showModal(
-            "🧪 회복약",
-            "이번 전투의 회복약을 모두 사용했습니다."
-        );
-
-        return;
-    }
-
-    healCount--;
-
-    game.hp =
-        Math.min(
-            getPlayerMaxHp(),
-            game.hp + 30
-        );
-
-    document.getElementById(
-        "battleMessage"
-    ).innerHTML =
-        `<span class="success">
-            🧪 건강 30 회복!
-        </span>`;
-
-    updateBattleUI();
-}
-
-
-/* =========================================================
-   전투 UI
-========================================================= */
-
-function updateBattleUI(){
-
-    if(!currentBattle)
-        return;
+}'''
+new_attack = '''function getPlayerAttack(){
 
     const c =
         characters[
@@ -2656,908 +271,274 @@ function updateBattleUI(){
             game.weapon
         ];
 
-    const z =
-        zombies[
-            currentBattle.zombieType
-        ];
+    const gun =
+        game.gun && guns[game.gun]
+            ? guns[game.gun]
+            : null;
 
-    document.getElementById(
-        "battleCharacterName"
-    ).textContent =
-        c.name;
+    return (
+        game.baseAttack +
+        c.attack +
+        w.attack +
+        (gun ? gun.attack : 0) +
+        (game.level - 1) * 2
+    );
+}'''
+html = html.replace(old_attack, new_attack, 1)
 
-    document.getElementById(
-        "playerHpText"
-    ).textContent =
-        game.hp;
-
-    document.getElementById(
-        "playerMaxHpText"
-    ).textContent =
-        getPlayerMaxHp();
-
-    document.getElementById(
-        "battleAttack"
-    ).textContent =
-        getPlayerAttack();
-
-    document.getElementById(
-        "playerHpFill"
-    ).style.width =
-        (
-            game.hp /
-            getPlayerMaxHp() *
-            100
-        ) + "%";
-
-    document.getElementById(
-        "zombieName"
-    ).textContent =
-        z.name;
-
-    document.getElementById(
-        "zombieLevelText"
-    ).textContent =
-        z.level;
-
-    document.getElementById(
-        "zombieHpText"
-    ).textContent =
-        currentBattle.zombieHp;
-
-    document.getElementById(
-        "zombieMaxHpText"
-    ).textContent =
-        currentBattle.zombieMaxHp;
-
-    document.getElementById(
-        "zombieHpFill"
-    ).style.width =
-        (
-            currentBattle.zombieHp /
-            currentBattle.zombieMaxHp *
-            100
-        ) + "%";
-
-    document.getElementById(
-        "fpZombie"
-    ).textContent =
-        z.emoji;
-
-    document.getElementById(
-        "fpWeapon"
-    ).textContent =
-        w.emoji;
-
-    updateUI();
-}
-
-
+# 10) Add gun shooting logic before skill section.
+gun_functions = r'''
 /* =========================================================
-   캐릭터 상점
+   총 상점 및 사격
 ========================================================= */
 
-function showCharacters(){
+function showGunShop(){
 
-    document.getElementById(
-        "mainScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "contentScreen"
-    ).classList.remove("hidden");
+    document.getElementById("mainScreen").classList.add("hidden");
+    document.getElementById("contentScreen").classList.remove("hidden");
 
     let html = `
-        <h1>🧑‍🎤 캐릭터 상점</h1>
+        <h1 class="gunShopTitle">🔫 총 상점</h1>
+        <p>코인으로 총을 구매하고 장착하세요.</p>
         <div class="cardGrid">
     `;
 
-    Object.entries(
-        characters
-    ).forEach(
-        ([id,c])=>{
+    Object.entries(guns).forEach(([id,g])=>{
 
-            const owned =
-                game.ownedCharacters
-                    .includes(id);
+        const owned = (game.ownedGuns || []).includes(id);
+        const equipped = game.gun === id;
 
-            const equipped =
-                game.character === id;
+        html += `
+            <div class="card">
+                <h2>${g.emoji}</h2>
+                <h3>${g.name}</h3>
+                <p>⚔️ 공격력 ${g.attack}</p>
+                <p>🔫 탄약 ${g.ammo}</p>
+                <p class="price">🪙 ${g.price}</p>
 
-            html += `
+                ${
+                    equipped
+                    ? `<button disabled>현재 장착</button>`
+                    : owned
+                    ? `<button onclick="equipGun('${id}')">장착</button>`
+                    : `<button onclick="buyGun('${id}')">구매</button>`
+                }
+            </div>
+        `;
+    });
 
-                <div class="card">
+    html += `</div>`;
 
-                    <h2>${c.emoji}</h2>
-
-                    <h3>${c.name}</h3>
-
-                    <p>
-                        ⚔️ 공격 +${c.attack}
-                    </p>
-
-                    <p>
-                        ❤️ 건강 +${c.hp}
-                    </p>
-
-                    <p>
-                        🛡️ 방어 +${c.defense}
-                    </p>
-
-                    <p class="price">
-                        ${
-                            c.price === 0
-                            ? "무료"
-                            : "🪙 " + c.price
-                        }
-                    </p>
-
-                    ${
-                        equipped
-                        ?
-                        `<button disabled>
-                            현재 장착
-                         </button>`
-
-                        :
-
-                        owned
-
-                        ?
-
-                        `<button
-                            onclick=
-                            "equipCharacter('${id}')">
-                            장착
-                         </button>`
-
-                        :
-
-                        `<button
-                            onclick=
-                            "buyCharacter('${id}')">
-                            구매
-                         </button>`
-                    }
-
-                </div>
-            `;
-        }
-    );
-
-    html += "</div>";
-
-    document.getElementById(
-        "content"
-    ).innerHTML =
-        html;
+    document.getElementById("content").innerHTML = html;
 }
 
-function buyCharacter(id){
+function buyGun(id){
 
-    if(
-        game.ownedCharacters
-            .includes(id)
-    ){
+    const g = guns[id];
+
+    if((game.ownedGuns || []).includes(id)) return;
+
+    if(game.coins < g.price){
+        showModal("🪙 코인 부족","코인이 부족합니다.");
         return;
     }
 
-    const c =
-        characters[id];
+    game.coins -= g.price;
 
-    if(
-        game.coins <
-        c.price
-    ){
-
-        showModal(
-            "🪙 코인 부족",
-            "코인이 부족합니다."
-        );
-
-        return;
+    if(!Array.isArray(game.ownedGuns)){
+        game.ownedGuns = [];
     }
 
-    game.coins -=
-        c.price;
-
-    game.ownedCharacters
-        .push(id);
+    game.ownedGuns.push(id);
 
     saveSilent();
 
     showModal(
-        "🎉 구매 완료",
-        `${c.emoji} ${c.name} 구매 완료!`
+        "🎉 총 구매 완료",
+        `${g.emoji} ${g.name}을(를) 구매했습니다!`
     );
 
-    showCharacters();
+    showGunShop();
     updateUI();
 }
 
-function equipCharacter(id){
+function equipGun(id){
 
-    if(
-        !game.ownedCharacters
-            .includes(id)
-    ){
+    if(!(game.ownedGuns || []).includes(id)){
         return;
     }
 
-    game.character = id;
-
-    game.hp =
-        getPlayerMaxHp();
+    game.gun = id;
+    game.ammo = guns[id].ammo;
 
     saveSilent();
 
     showModal(
-        "✅ 장착 완료",
-        `${characters[id].name} 장착 완료!`
+        "✅ 총 장착 완료",
+        `${guns[id].name} 장착 완료!`
     );
 
-    showCharacters();
+    showGunShop();
     updateUI();
 }
 
+function shootGun(){
 
-/* =========================================================
-   무기 상점
-========================================================= */
-
-function showShop(){
-
-    document.getElementById(
-        "mainScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "contentScreen"
-    ).classList.remove("hidden");
-
-    let html = `
-        <h1>🛒 무기 상점</h1>
-        <div class="cardGrid">
-    `;
-
-    Object.entries(
-        weapons
-    ).forEach(
-        ([id,w])=>{
-
-            const owned =
-                game.ownedWeapons
-                    .includes(id);
-
-            const equipped =
-                game.weapon === id;
-
-            html += `
-
-                <div class="card">
-
-                    <h2>${w.emoji}</h2>
-
-                    <h3>${w.name}</h3>
-
-                    <p>
-                        ⚔️ 공격력 ${w.attack}
-                    </p>
-
-                    <p class="price">
-                        ${
-                            w.price === 0
-                            ? "무료"
-                            : "🪙 " + w.price
-                        }
-                    </p>
-
-                    ${
-                        equipped
-
-                        ?
-
-                        `<button disabled>
-                            현재 장착
-                         </button>`
-
-                        :
-
-                        owned
-
-                        ?
-
-                        `<button
-                            onclick=
-                            "equipWeapon('${id}')">
-                            장착
-                         </button>`
-
-                        :
-
-                        `<button
-                            onclick=
-                            "buyWeapon('${id}')">
-                            구매
-                         </button>`
-                    }
-
-                </div>
-            `;
-        }
-    );
-
-    html += "</div>";
-
-    document.getElementById(
-        "content"
-    ).innerHTML =
-        html;
-}
-
-function buyWeapon(id){
-
-    if(
-        game.ownedWeapons
-            .includes(id)
-    ){
+    if(!currentBattle){
         return;
     }
 
-    const w =
-        weapons[id];
-
-    if(
-        game.coins <
-        w.price
-    ){
-
-        showModal(
-            "🪙 코인 부족",
-            "코인이 부족합니다."
-        );
-
+    if(!game.gun || !guns[game.gun]){
+        showModal("🔫 총 없음","총 상점에서 총을 구매하고 장착하세요.");
         return;
     }
 
-    game.coins -=
-        w.price;
-
-    game.ownedWeapons
-        .push(id);
-
-    saveSilent();
-
-    showModal(
-        "🎉 구매 완료",
-        `${w.emoji} ${w.name} 구매 완료!`
-    );
-
-    showShop();
-    updateUI();
-}
-
-function equipWeapon(id){
-
-    if(
-        !game.ownedWeapons
-            .includes(id)
-    ){
+    if((game.ammo ?? 0) <= 0){
+        showModal("🔫 탄약 없음","탄약이 없습니다.");
         return;
     }
 
-    game.weapon = id;
+    if(answering){
+        return;
+    }
+
+    game.ammo--;
+
+    const gun = guns[game.gun];
+    const damage = gun.attack;
+
+    currentBattle.zombieHp =
+        Math.max(
+            0,
+            currentBattle.zombieHp - damage
+        );
+
+    document.getElementById("battleMessage").innerHTML =
+        `<span class="success">🔫 발사! ${damage} 피해!</span>`;
+
+    attackAnimation();
+    updateBattleUI();
+
+    if(currentBattle.zombieHp <= 0){
+        setTimeout(defeatZombie,500);
+    }else{
+        /* 총을 쏜 뒤 좀비가 맞반격 */
+        setTimeout(zombieReturnsFire,500);
+    }
 
     saveSilent();
-
-    showModal(
-        "✅ 장착 완료",
-        `${weapons[id].name} 장착 완료!`
-    );
-
-    showShop();
-    updateUI();
 }
 
+function zombieReturnsFire(){
 
-/* =========================================================
-   퀘스트
-========================================================= */
-
-function showQuest(){
-
-    document.getElementById(
-        "mainScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "contentScreen"
-    ).classList.remove("hidden");
-
-    const q =
-        game.dailyQuestProgress;
-
-    document.getElementById(
-        "content"
-    ).innerHTML = `
-
-        <h1>🎯 일일 퀘스트</h1>
-
-        <div class="cardGrid">
-
-            <div class="card">
-
-                <h3>
-                    🧟 좀비 5마리 처치
-                </h3>
-
-                <p>
-                    ${q.zombies || 0}/5
-                </p>
-
-                <p>
-                    🪙 20 + ⭐ 20 XP
-                </p>
-
-            </div>
-
-            <div class="card">
-
-                <h3>
-                    📚 문제 10개 풀기
-                </h3>
-
-                <p>
-                    ${q.questions || 0}/10
-                </p>
-
-                <p>
-                    🪙 15 + ⭐ 30 XP
-                </p>
-
-            </div>
-
-            <div class="card">
-
-                <h3>
-                    🔥 최고 콤보
-                </h3>
-
-                <p>
-                    ${game.highestCombo}/5
-                </p>
-
-            </div>
-
-            <div class="card">
-
-                <h3>
-                    👑 보스 처치
-                </h3>
-
-                <p>
-                    ${q.boss || 0}/1
-                </p>
-
-            </div>
-
-        </div>
-    `;
-}
-
-
-/* =========================================================
-   업적
-========================================================= */
-
-function showAchievements(){
-
-    document.getElementById(
-        "mainScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "contentScreen"
-    ).classList.remove("hidden");
-
-    const list = [
-
-        [
-            "🧟 첫 퇴치",
-            game.zombiesDefeated >= 1,
-            "좀비 1마리 처치"
-        ],
-
-        [
-            "⚔️ 좀비 사냥꾼",
-            game.zombiesDefeated >= 100,
-            "좀비 100마리 처치"
-        ],
-
-        [
-            "📚 공부 시작",
-            game.correctQuestions >= 10,
-            "문제 10개 정답"
-        ],
-
-        [
-            "🔥 연속 정답왕",
-            game.highestCombo >= 10,
-            "10연속 정답"
-        ],
-
-        [
-            "👑 보스 헌터",
-            game.bossesDefeated >= 5,
-            "보스 5마리 처치"
-        ],
-
-        [
-            "🏆 학교 구원자",
-            game.unlockedMaps
-                .includes("roof"),
-            "옥상 해금"
-        ]
-
-    ];
-
-    let html = `
-        <h1>🏆 업적</h1>
-        <div class="cardGrid">
-    `;
-
-    list.forEach(
-        a=>{
-
-            html += `
-
-                <div class="card">
-
-                    <h3>${a[0]}</h3>
-
-                    <p>${a[2]}</p>
-
-                    <p>
-                        ${
-                            a[1]
-                            ? "✅ 달성"
-                            : "🔒 미달성"
-                        }
-                    </p>
-
-                </div>
-            `;
-        }
-    );
-
-    html += "</div>";
-
-    document.getElementById(
-        "content"
-    ).innerHTML =
-        html;
-}
-
-
-/* =========================================================
-   랭킹
-========================================================= */
-
-function showRanking(){
-
-    document.getElementById(
-        "mainScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "contentScreen"
-    ).classList.remove("hidden");
-
-    const score =
-        game.level * 100 +
-        game.correctQuestions * 10 +
-        game.zombiesDefeated * 20;
-
-    document.getElementById(
-        "content"
-    ).innerHTML = `
-
-        <h1>🥇 랭킹</h1>
-
-        <div class="card">
-
-            <h2>
-                👤 ${game.nickname}
-            </h2>
-
-            <p>
-                ⭐ 레벨:
-                ${game.level}
-            </p>
-
-            <p>
-                ✅ 정답:
-                ${game.correctQuestions}
-            </p>
-
-            <p>
-                🧟 처치:
-                ${game.zombiesDefeated}
-            </p>
-
-            <p>
-                🏆 점수:
-                ${score}
-            </p>
-
-        </div>
-    `;
-}
-
-
-/* =========================================================
-   학습 통계
-========================================================= */
-
-function showStats(){
-
-    document.getElementById(
-        "mainScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "contentScreen"
-    ).classList.remove("hidden");
-
-    const accuracy =
-        game.totalQuestions === 0
-        ? 0
-        :
-        Math.round(
-            game.correctQuestions /
-            game.totalQuestions *
-            100
-        );
-
-    document.getElementById(
-        "content"
-    ).innerHTML = `
-
-        <h1>📈 학습 통계</h1>
-
-        <div class="cardGrid">
-
-            <div class="card">
-                <h3>📚 총 문제</h3>
-                <p>
-                    ${game.totalQuestions}
-                </p>
-            </div>
-
-            <div class="card">
-                <h3>✅ 정답</h3>
-                <p>
-                    ${game.correctQuestions}
-                </p>
-            </div>
-
-            <div class="card">
-                <h3>🎯 정답률</h3>
-                <p>
-                    ${accuracy}%
-                </p>
-            </div>
-
-            <div class="card">
-                <h3>🧟 좀비 처치</h3>
-                <p>
-                    ${game.zombiesDefeated}
-                </p>
-            </div>
-
-            <div class="card">
-                <h3>👑 보스 처치</h3>
-                <p>
-                    ${game.bossesDefeated}
-                </p>
-            </div>
-
-            <div class="card">
-                <h3>🔥 최고 콤보</h3>
-                <p>
-                    ${game.highestCombo}
-                </p>
-            </div>
-
-        </div>
-    `;
-}
-
-
-/* =========================================================
-   출석
-========================================================= */
-
-function showAttendance(){
-
-    document.getElementById(
-        "mainScreen"
-    ).classList.add("hidden");
-
-    document.getElementById(
-        "contentScreen"
-    ).classList.remove("hidden");
-
-    const rewards = [
-        10,
-        15,
-        20,
-        30,
-        40,
-        50,
-        100
-    ];
-
-    let html = `
-        <h1>🎁 출석 보상</h1>
-        <div class="cardGrid">
-    `;
-
-    rewards.forEach(
-        (reward,index)=>{
-
-            const day =
-                index + 1;
-
-            html += `
-
-                <div class="card">
-
-                    <h3>
-                        ${day}일차
-                    </h3>
-
-                    <p>
-                        🪙 ${reward} 코인
-                    </p>
-
-                    ${
-                        game.attendance >= day
-                        ?
-                        "<p>✅ 출석 완료</p>"
-                        :
-                        "<p>🔒 미달성</p>"
-                    }
-
-                </div>
-            `;
-        }
-    );
-
-    html += `
-        </div>
-
-        <div class="card">
-            <h2>
-                🔥 현재 ${game.attendance}일차
-            </h2>
-        </div>
-    `;
-
-    document.getElementById(
-        "content"
-    ).innerHTML =
-        html;
-}
-
-
-/* =========================================================
-   전투 나가기
-========================================================= */
-
-function exitBattle(){
-
-    const ok =
-        confirm(
-            "현재 전투를 나갈까요?"
-        );
-
-    if(!ok)
+    if(!currentBattle || game.hp <= 0){
         return;
+    }
 
-    currentBattle = null;
-    currentQuestion = null;
+    const z = zombies[currentBattle.zombieType];
+    const damage = Math.max(
+        1,
+        currentBattle.zombieAttack - getPlayerDefense()
+    );
 
-    answering = false;
-    combo = 0;
+    game.hp = Math.max(
+        0,
+        game.hp - damage
+    );
 
-    showMap();
-}
+    document.getElementById("zombieGunMessage").textContent =
+        `🔫 ${z.name}이(가) 총을 쐈습니다!`;
 
+    hitAnimation();
+    updateBattleUI();
 
-/* =========================================================
-   게임 오버
-========================================================= */
-
-function gameOver(){
-
-    game.hp =
-        getPlayerMaxHp();
-
-    combo = 0;
-
-    answering = false;
+    if(game.hp <= 0){
+        setTimeout(gameOver,500);
+    }else{
+        /* 좀비의 총에 맞은 다음 새로운 문제가 나옴 */
+        setTimeout(newQuestion,600);
+    }
 
     saveSilent();
+}
+'''
+if "function showGunShop()" not in html:
+    html = html.replace("/* =========================================================\n   필살기\n", gun_functions + "\n\n/* =========================================================\n   필살기\n", 1)
 
-    showModal(
-        "💀 GAME OVER",
-        "건강이 0이 되었습니다.<br>" +
-        "캐릭터와 코인은 유지됩니다."
-    );
+# 11) Add shoot button to battle controls.
+html = html.replace(
+    '''<button
+                    class="itemBtn"
+                    onclick="useHeal()">
+                    🧪 회복약
+                </button>''',
+    '''<button
+                    class="itemBtn"
+                    onclick="useHeal()">
+                    🧪 회복약
+                </button>
 
-    setTimeout(
-        ()=>{
-            closeModal();
-            currentBattle = null;
-            showMap();
-        },
-        1200
-    );
+                <button
+                    class="skillBtn"
+                    onclick="shootGun()">
+                    🔫 총 쏘기
+                </button>''',
+    1
+)
+
+# 12) Add default gun migration after loadGame.
+needle = '''let game = loadGame();
+
+let currentBattle = null;'''
+replacement = '''let game = loadGame();
+
+if(!Array.isArray(game.ownedGuns)){
+    game.ownedGuns = [];
+}
+if(!Object.prototype.hasOwnProperty.call(game,"gun")){
+    game.gun = "pistol";
+}
+if(!Object.prototype.hasOwnProperty.call(game,"ammo")){
+    game.ammo = guns && guns[game.gun] ? guns[game.gun].ammo : 12;
 }
 
+let currentBattle = null;'''
+html = html.replace(needle, replacement, 1)
 
-/* =========================================================
-   초기화
-========================================================= */
-
-function resetGame(){
-
-    const ok =
-        confirm(
-            "정말 모든 게임 데이터를 초기화할까요?"
-        );
-
-    if(!ok)
-        return;
-
-    localStorage.removeItem(
-        "studyZombieGame"
-    );
-
-    location.reload();
-}
-
-
-/* =========================================================
-   모달
-========================================================= */
-
-function showModal(title,text){
+# 13) Make startBattle automatically equip ammo if gun exists.
+html = html.replace(
+    '''function startBattle(type){
 
     document.getElementById(
-        "modalTitle"
-    ).innerHTML =
-        title;
+        "contentScreen"
+    ).classList.add("hidden");''',
+    '''function startBattle(type){
+
+    if(game.gun && guns[game.gun] && !game.ammo){
+        game.ammo = guns[game.gun].ammo;
+    }
 
     document.getElementById(
-        "modalText"
-    ).innerHTML =
-        text;
+        "contentScreen"
+    ).classList.add("hidden");''',
+    1
+)
 
-    document.getElementById(
-        "modal"
-    ).classList.remove("hidden");
-}
+# 14) Make zombie image remain as the requested visual and add a simple text hint.
+html = html.replace(
+    '''<p>
+            🎮 <b>W A S D</b> 로 이동하세요.
+            🧟 좀비에게 가까이 가면 전투가 시작됩니다.
+        </p>''',
+    '''<p>
+            🎮 <b>W A S D</b> 로 이동하세요.
+            🧟 좀비에게 가까이 가면 전투가 시작됩니다.
+        </p>
+        <p class="info">🔫 전투에서는 총을 쏘거나, 좀비에게 총을 맞은 뒤 나오는 문제를 풀어 반격하세요.</p>''',
+    1
+)
 
-function closeModal(){
-
-    document.getElementById(
-        "modal"
-    ).classList.add("hidden");
-}
-
-</script>
-
-</body>
-</html>
+out = Path('/mnt/data/index.html')
+out.write_text(html, encoding='utf-8')
+print(f"완료: {out}")
+print(f"파일 크기: {out.stat().st_size:,} bytes")
